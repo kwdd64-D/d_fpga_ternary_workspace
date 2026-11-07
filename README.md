@@ -1,1 +1,1 @@
-# d_fpga_ternary_worksurface
+# d_fpga_ternary_workspace
