@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Kernel — OKLCH Theme</title>
+<style>
+  :root{
+    --h:250; --accent:oklch(70% .15 250);
+    --bg:oklch(97% .01 var(--h)); --panel:oklch(100% .008 var(--h));
+    --line:oklch(88% .015 var(--h)); --text:oklch(24% .02 var(--h)); --dim:oklch(52% .02 var(--h));
+    --pass:oklch(55% .15 150); --fail:oklch(55% .19 25);
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:oklch(15% .012 var(--h)); --panel:oklch(19% .015 var(--h));
+      --line:oklch(28% .02 var(--h)); --text:oklch(88% .015 var(--h)); --dim:oklch(64% .02 var(--h));
+      --pass:oklch(72% .16 150); --fail:oklch(65% .19 25);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:oklch(15% .012 var(--h)); --panel:oklch(19% .015 var(--h));
+    --line:oklch(28% .02 var(--h)); --text:oklch(88% .015 var(--h)); --dim:oklch(64% .02 var(--h));
+    --pass:oklch(72% .16 150); --fail:oklch(65% .19 25);
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); padding:24px;
+    font:13px "SF Mono","Consolas","Menlo",monospace;}
+  h1{font-size:15px; font-weight:600; letter-spacing:.04em; margin:0 0 4px;}
+  h1 span,code{color:var(--accent);}
+  .sub{color:var(--dim); margin:0 0 20px; font-size:12px; line-height:1.5; max-width:70ch;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:12px 14px 14px; min-width:0;}
+  .panel h2{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent);
+    margin:0 0 10px; display:flex; justify-content:space-between; gap:8px;}
+  .panel h2 small{color:var(--dim); text-transform:none; letter-spacing:0;}
+  .field{display:flex; align-items:center; gap:8px; margin:6px 0;}
+  .field label{width:14px; color:var(--dim);}
+  .field span{width:3ch; text-align:right;}
+  input[type=range]{flex:1; min-width:0; accent-color:var(--accent);}
+  .row{display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;}
+  .swatch{width:34px; height:20px; border-radius:3px; border:1px solid var(--line); background:var(--accent);}
+  .ramp{display:grid; grid-template-columns:repeat(8,1fr); gap:4px;}
+  .ramp div{height:44px; border-radius:3px; border:1px solid var(--line); display:flex; align-items:flex-end;
+    justify-content:center; font-size:10px; color:var(--dim); padding-bottom:2px;}
+  .ramp b{font-weight:400; color:var(--text); mix-blend-mode:normal;}
+  .note{color:var(--dim); font-size:11px; margin:10px 0 0; line-height:1.5;}
+  .status{display:flex; gap:10px; align-items:center; margin-bottom:8px;}
+  .dot{width:9px; height:9px; border-radius:50%;}
+  .wide{grid-column:1 / -1;}
+  .scroll{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; font-size:11px;}
+  th,td{text-align:left; padding:3px 6px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  th{color:var(--dim); font-weight:500;}
+</style>
+</head>
+<body>
+
+<h1>MEMORY KERNEL <span>OKLCH</span> — theme cartridge</h1>
+<p class="sub">Three integers (l, c, h) live in a constrained buffer. Every color on this page — accent, surfaces, borders, text —
+resolves through <code>oklch()</code> from those values at render time. Core stays blind, the cartridge validates, the projection only reads.</p>
+
+<div class="grid">
+  <div class="panel">
+    <h2>theme <small>l,c,h → oklch()</small></h2>
+    <div class="field"><label>L</label><input type="range" min="0" max="100" id="in-l" oninput="setTheme('l',this.value)"><span id="v-l"></span></div>
+    <div class="field"><label>C</label><input type="range" min="0" max="40"  id="in-c" oninput="setTheme('c',this.value)"><span id="v-c"></span></div>
+    <div class="field"><label>H</label><input type="range" min="0" max="360" id="in-h" oninput="setTheme('h',this.value)"><span id="v-h"></span></div>
+    <div class="row"><div class="swatch"></div><span id="css-out" style="color:var(--dim)"></span></div>
+    <p class="note" id="msg" style="min-height:14px;color:var(--fail)"></p>
+  </div>
+
+  <div class="panel">
+    <h2>lightness ramp <small>same c,h — L stepped</small></h2>
+    <div class="ramp" id="ramp"></div>
+    <p class="note">Surfaces and text share the accent hue at low chroma, so the whole page follows one hue integer.</p>
+  </div>
+
+  <div class="panel wide">
+    <h2>diagnostics <small>read-only boot self-check</small></h2>
+    <div class="status"><div class="dot" id="dot"></div><strong id="dlabel"></strong><span id="dmeta" style="color:var(--dim)"></span></div>
+    <div class="scroll"><table><thead><tr><th>symbol</th><th>addr</th><th>constraint</th><th>value</th></tr></thead><tbody id="mem"></tbody></table></div>
+    <p class="note" id="dmsg"></p>
+  </div>
+</div>
+
+<script>
+/* LAYER 3 — CONSTRAINTS + RECORDS */
+const CONSTRAINTS = {
+  pct100:   { min:0, max:100 },
+  chroma40: { min:0, max:40  },
+  hue360:   { min:0, max:360 },
+};
+const RECORDS = {
+  theme: {
+    l:{ default:70,  constraint:'pct100'   },
+    c:{ default:15,  constraint:'chroma40' },
+    h:{ default:250, constraint:'hue360'   },
+  },
+};
+
+/* ALLOCATOR — constraints (type,min,max), schema (target,constraint), fields, diag */
+function allocate(records, constraints){
+  const cNames = Object.keys(constraints).sort();
+  let addr = 0; const cAddr = {};
+  for (const n of cNames){ cAddr[n] = addr; addr += 12; }
+  const cEnd = addr;
+
+  const fields = [];
+  for (const rn of Object.keys(records).sort())
+    for (const fn of Object.keys(records[rn]).sort()) fields.push({ rn, fn, def:records[rn][fn] });
+
+  const sAddr = {}; addr = cEnd;
+  for (const f of fields){ sAddr[f.rn+'.'+f.fn] = addr; addr += 8; }
+  const sEnd = addr;
+
+  const L = {}, fAddr = {}; addr = sEnd;
+  for (const f of fields){ (L[f.rn] ||= {})[f.fn] = addr; fAddr[f.rn+'.'+f.fn] = addr; addr += 4; }
+  const fEnd = addr;
+  const diag = { status:fEnd, pass:fEnd+4, warn:fEnd+8, fail:fEnd+12 };
+
+  const boot = [];
+  for (const n of cNames){
+    const c = constraints[n], a = cAddr[n];
+    boot.push({addr:a, val:0}, {addr:a+4, val:c.min}, {addr:a+8, val:c.max});
+  }
+  for (const f of fields){
+    const k = f.rn+'.'+f.fn;
+    boot.push({addr:sAddr[k], val:fAddr[k]}, {addr:sAddr[k]+4, val:cAddr[f.def.constraint]});
+    boot.push({addr:fAddr[k], val:f.def.default});
+  }
+  boot.push({addr:diag.status,val:-1},{addr:diag.pass,val:0},{addr:diag.warn,val:0},{addr:diag.fail,val:0});
+
+  return { L, cNames, cAddr, sAddr, fields, diag, boot, totalSize:fEnd+16, regions:{cEnd, sEnd, fEnd} };
+}
+const BOOT = allocate(RECORDS, CONSTRAINTS);
+
+/* LAYER 1 — CORE (semantically blind) */
+const buffer = new ArrayBuffer(BOOT.totalSize);
+const view = new DataView(buffer);
+const CORE = {
+  read(a){
+    if (typeof a !== 'number' || a < 0 || a + 4 > buffer.byteLength || a % 4) return 0;
+    return view.getInt32(a, true);
+  },
+  commit(intents){
+    for (const it of intents)
+      if (it.addr < 0 || it.addr + 4 > buffer.byteLength || it.addr % 4) return { ok:false, error:`bounds/alignment violation at ${it.addr}` };
+    const undo = intents.map(it => ({ addr:it.addr, val:view.getInt32(it.addr, true) }));
+    try { for (const it of intents) view.setInt32(it.addr, it.val, true); return { ok:true }; }
+    catch { for (const r of undo) view.setInt32(r.addr, r.val, true); return { ok:false, error:'commit failed, rolled back' }; }
+  },
+  seed(intents){ for (const it of intents) view.setInt32(it.addr, it.val, true); }
+};
+CORE.seed(BOOT.boot);
+
+/* LAYER 2 — CARTRIDGE (validates against the schema directory) */
+const CARTRIDGE = {
+  _resolve(addr){
+    for (const f of BOOT.fields){
+      const e = BOOT.sAddr[f.rn+'.'+f.fn];
+      if (CORE.read(e) === addr) return CORE.read(e+4);
+    }
+    return -1;
+  },
+  validate(intents){
+    for (const it of intents){
+      const c = this._resolve(it.addr);
+      if (c === -1) return { ok:false, error:`no schema entry for address ${it.addr}` };
+      const min = CORE.read(c+4), max = CORE.read(c+8);
+      if (!Number.isInteger(it.val) || it.val < min || it.val > max)
+        return { ok:false, error:`value ${it.val} out of range [${min},${max}]` };
+    }
+    return { ok:true };
+  },
+  transact(intents){ const v = this.validate(intents); return v.ok ? CORE.commit(intents) : v; }
+};
+
+/* LAYER 4 — BOOT DIAGNOSTICS */
+function runDiagnostics(){
+  const msgs = []; let fail = 0;
+  const seen = new Set();
+  for (const f of BOOT.fields){
+    const e = BOOT.sAddr[f.rn+'.'+f.fn], target = CORE.read(e), c = CORE.read(e+4);
+    if (target % 4){ msgs.push(`FAIL misaligned target ${f.rn}.${f.fn}`); fail++; }
+    if (seen.has(target)){ msgs.push(`FAIL duplicate target ${target}`); fail++; } else seen.add(target);
+    if (c < 0 || c >= BOOT.regions.cEnd){ msgs.push(`FAIL dangling constraint ptr ${f.rn}.${f.fn}`); fail++; }
+  }
+  if (BOOT.totalSize !== buffer.byteLength){ msgs.push('FAIL buffer size mismatch'); fail++; }
+  if (!msgs.length) msgs.push('PASS — all structural checks green');
+  const status = fail ? 2 : 0;
+  CORE.commit([{addr:BOOT.diag.status,val:status},{addr:BOOT.diag.pass,val:status?0:1},{addr:BOOT.diag.warn,val:0},{addr:BOOT.diag.fail,val:fail}]);
+  return { status, msgs, fail };
+}
+const DIAG = runDiagnostics();
+
+/* ACTIONS — always via transact() */
+let lastError = '';
+function setTheme(ch, val){
+  const r = CARTRIDGE.transact([{ addr:BOOT.L.theme[ch], val:parseInt(val, 10) }]);
+  lastError = r.ok ? '' : `rejected — ${r.error}`;
+  project();
+}
+
+/* LAYER 5 — PROJECTION (reads buffer, writes DOM values in place) */
+const $ = id => document.getElementById(id);
+const RAMP = [20,30,40,50,60,70,80,90];
+
+function project(){
+  const L = BOOT.L.theme;
+  const l = CORE.read(L.l), c = CORE.read(L.c), h = CORE.read(L.h);
+  const accent = `oklch(${l}% ${(c/100).toFixed(2)} ${h})`;
+  const root = document.documentElement.style;
+  root.setProperty('--accent', accent);
+  root.setProperty('--h', h);
+
+  for (const [k, v] of [['l',l],['c',c],['h',h]]){
+    $('v-'+k).textContent = v;
+    if (document.activeElement !== $('in-'+k)) $('in-'+k).value = v;
+  }
+  $('css-out').textContent = accent;
+  $('msg').textContent = lastError;
+
+  $('ramp').innerHTML = RAMP.map(s =>
+    `<div style="background:oklch(${s}% ${(c/100).toFixed(2)} ${h})"><b>${s}</b></div>`).join('');
+
+  $('dot').style.background = DIAG.status ? 'var(--fail)' : 'var(--pass)';
+  $('dlabel').textContent = DIAG.status ? 'FAIL' : 'PASS';
+  $('dmeta').textContent = `pass:${CORE.read(BOOT.diag.pass)} fail:${CORE.read(BOOT.diag.fail)} · buffer ${buffer.byteLength}B`;
+  $('dmsg').textContent = DIAG.msgs.join(' · ');
+  $('mem').innerHTML = BOOT.fields.map(f => {
+    const a = BOOT.L[f.rn][f.fn], cn = f.def.constraint, ca = BOOT.cAddr[cn];
+    return `<tr><td>${f.rn}.${f.fn}</td><td>${a}</td><td>${cn} [${CORE.read(ca+4)}, ${CORE.read(ca+8)}]</td><td>${CORE.read(a)}</td></tr>`;
+  }).join('');
+}
+project();
+</script>
+</body>
+</html>
